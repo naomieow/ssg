@@ -46,6 +46,8 @@ pub type Renderer(view) {
     image: fn(jot.Destination, String) -> view,
     linebreak: view,
     thematicbreak: view,
+    bulletlist: fn(jot.ListLayout, List(List(view))) -> view,
+    rawblock: fn(String) -> view,
   )
 }
 
@@ -110,6 +112,14 @@ pub fn default_renderer() -> Renderer(Element(msg)) {
     },
     linebreak: html.br([]),
     thematicbreak: html.hr([]),
+    bulletlist: fn(layout, items) {
+      html.ol(
+        [],
+        items
+          |> list.map(fn(item) { html.li([], item) }),
+      )
+    },
+    rawblock: fn(text) { html.text(text) },
   )
 }
 
@@ -240,6 +250,16 @@ fn render_block(
     jot.ThematicBreak -> {
       renderer.thematicbreak
     }
+    jot.BulletList(layout, _style, items) ->
+      renderer.bulletlist(
+        layout,
+        items
+          |> list.map(fn(item) {
+            item
+            |> list.map(render_block(_, references, renderer))
+          }),
+      )
+    jot.RawBlock(raw) -> renderer.rawblock(raw)
   }
 }
 
@@ -284,6 +304,7 @@ fn render_inline(
     }
 
     jot.Footnote(_) -> renderer.text("")
+    jot.NonBreakingSpace -> renderer.text("\n")
   }
 }
 
@@ -309,5 +330,6 @@ fn text_content(segments: List(jot.Inline)) -> String {
     jot.Image(_, _) -> text
     jot.Linebreak -> text
     jot.Footnote(_) -> text
+    jot.NonBreakingSpace -> text
   }
 }
